@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HELPERS ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    // --- VALIDATION BLUEPRINTS ---
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'points', 'level', 'grade']) 
+        && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() <= 64
+        && data.points is number && data.points >= 0
+        && data.level is string && data.grade is string
+        && (data.subscription == 'free' || data.subscription == 'premium');
+    }
+
+    function isValidWord(data) {
+      return data.keys().hasAll(['term', 'definition'])
+        && data.term is string && data.term.size() <= 100
+        && data.definition is string && data.definition.size() <= 1000;
+    }
+
+    function isValidPersonalWord(data) {
+      return data.keys().hasAll(['term', 'definition'])
+        && data.term is string && data.term.size() <= 100
+        && data.definition is string && data.definition.size() <= 1000;
+    }
+
+    function isValidSRSItem(data) {
+      return data.keys().hasAll(['wordId', 'nextReview'])
+        && data.wordId is string && data.wordId.size() <= 100
+        && data.nextReview is timestamp;
+    }
+
+    function isValidDailyState(data) {
+      return data.keys().hasAll(['word', 'used'])
+        && data.word is map && data.used is bool;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'points', 'grade'])
+        && data.userId == request.auth.uid
+        && data.displayName is string && data.points is number && data.grade is string;
+    }
+
+    // --- COLLECTION RULES ---
+
+    // 1. Scholar Profiles
+    match /users/{userId} {
+      // Allow reading own profile completely
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming());
+
+      // 2. Personal Manuscripts (Isolated)
+      match /personal_lexicon/{wordId} {
+        allow get, delete: if isOwner(userId) && isValidId(wordId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(wordId) && isValidPersonalWord(incoming()) && incoming().createdAt == request.time;
+        allow update: if isOwner(userId) && isValidId(wordId) && isValidPersonalWord(incoming()) && incoming().createdAt == existing().createdAt;
+      }
+
+      // 3. Daily Word State
+      match /daily_state/{dateId} {
+        allow get, delete: if isOwner(userId) && isValidId(dateId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(dateId) && isValidDailyState(incoming());
+      }
+
+      // 4. Spaced Repetition System (SRS)
+      match /srs/{wordId} {
+        allow get, delete: if isOwner(userId) && isValidId(wordId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(wordId) && isValidSRSItem(incoming());
+      }
+
+      // 5. Sentences Archives
+      match /sentences/{sentenceId} {
+        allow get, delete: if isOwner(userId) && isValidId(sentenceId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(sentenceId);
+      }
+    }
+
+    // 6. Global Lexicon Cache
+    match /words/{wordId} {
+      allow get: if isSignedIn() && isValidId(wordId);
+      allow list: if isSignedIn();
+      // Allow any scholar to catalog a new word into the global archives
+      allow create, update: if isSignedIn() && isValidWord(incoming()) && isValidId(wordId);
+    }
+
+    // 4. Daily Academic Rotation
+    match /daily_word/{dateId} {
+      allow read, list: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(dateId);
+    }
+
+    // 5. Public Gallery (Leaderboard)
+    match /leaderboard/global/entries/{userId} {
+      // Secure List Query: Enforced by rules
+      allow read, list: if isSignedIn();
+      // Only the owner can post their merit score
+      allow create, update: if isOwner(userId) && isValidLeaderboardEntry(incoming()) && isValidId(userId);
+    }
+  }
+}

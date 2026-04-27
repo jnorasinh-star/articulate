@@ -1,0 +1,6 @@
+{
+  "name": "Articulate",
+  "description": "An AI-powered vocabulary app that teaches a word per day, features a point system, spaced repetition, and competitive leaderboards to master new words.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": []
+}

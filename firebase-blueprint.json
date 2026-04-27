@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "User": {
+      "title": "Scholar Profile",
+      "description": "Public and private academic profile of a user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "points": { "type": "number" },
+        "streak": { "type": "number" },
+        "level": { "type": "string" },
+        "grade": { "type": "string" },
+        "masteredWords": { "type": "number" },
+        "subscription": { "type": "string", "enum": ["free", "premium"] },
+        "lastActive": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "points", "level", "grade"]
+    },
+    "Word": {
+      "title": "Lexical Entry",
+      "description": "A dictionary entry cached from AI lookup.",
+      "type": "object",
+      "properties": {
+        "term": { "type": "string" },
+        "definition": { "type": "string" },
+        "pos": { "type": "string" },
+        "ipa": { "type": "string" },
+        "examples": { "type": "array" },
+        "level": { "type": "string" },
+        "origin": { "type": "string" },
+        "related": { "type": "object" }
+      },
+      "required": ["term", "definition"]
+    },
+    "PersonalWord": {
+      "title": "Manuscript Entry",
+      "description": "A user-defined word in their personal lexicon.",
+      "type": "object",
+      "properties": {
+        "term": { "type": "string" },
+        "definition": { "type": "string" },
+        "pos": { "type": "string" },
+        "level": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "mastered": { "type": "boolean" }
+      },
+      "required": ["term", "definition", "createdAt"]
+    },
+    "LeaderboardEntry": {
+      "title": "Gallery Record",
+      "description": "A public record of academic merit.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "points": { "type": "number" },
+        "grade": { "type": "string" }
+      },
+      "required": ["userId", "displayName", "points", "grade"]
+    },
+    "DailyState": {
+      "title": "Daily Lexicon State",
+      "description": "Tracks the daily word assigned to a user.",
+      "type": "object",
+      "properties": {
+        "word": { "$ref": "Word" },
+        "used": { "type": "boolean" },
+        "skippedCount": { "type": "number" }
+      }
+    },
+    "SRSItem": {
+      "title": "SRS Schedule",
+      "description": "Spaced repetition schedule for a word.",
+      "type": "object",
+      "properties": {
+        "wordId": { "type": "string" },
+        "nextReview": { "type": "string", "format": "date-time" },
+        "interval": { "type": "number" },
+        "easeFactor": { "type": "number" },
+        "repetitions": { "type": "number" },
+        "isMastered": { "type": "boolean" }
+      }
+    },
+    "Sentence": {
+      "title": "Scholar Submission",
+      "description": "A sentence submitted for verification.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "wordId": { "type": "string" },
+        "sentence": { "type": "string" },
+        "isValid": { "type": "boolean" },
+        "feedback": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Scholar profiles"
+    },
+    "/users/{userId}/personal_lexicon/{wordId}": {
+      "schema": "PersonalWord",
+      "description": "Personal manuscripts subcollection"
+    },
+    "/users/{userId}/daily_state/{dateId}": {
+      "schema": "DailyState",
+      "description": "Daily word rotation state"
+    },
+    "/users/{userId}/srs/{wordId}": {
+      "schema": "SRSItem",
+      "description": "Spaced repetition records"
+    },
+    "/users/{userId}/sentences/{sentenceId}": {
+      "schema": "Sentence",
+      "description": "Submitted sentence archives"
+    },
+    "/words/{wordId}": {
+      "schema": "Word",
+      "description": "AI-generated lexicon global cache"
+    },
+    "/daily_word/{dateId}": {
+      "schema": "object",
+      "description": "Mapping of dates to specific words"
+    },
+    "/leaderboard/global/entries/{userId}": {
+      "schema": "LeaderboardEntry",
+      "description": "Public ranking records"
+    }
+  }
+}
